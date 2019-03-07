@@ -25,5 +25,4 @@ module.exports = app =>{
                 (err,url)=> res.send({key,url})
         )
     })
-
 }

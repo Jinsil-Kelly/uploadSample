@@ -5,55 +5,79 @@ import {connect} from 'react-redux';
 import formFields from './formFields';
 import {withRouter} from 'react-router-dom';
 import * as actions from '../../actions';
-import request from "superagent";
 import Gallery from 'react-fine-uploader';
-import FineUploaderTraditional from 'fine-uploader-wrappers';
-import FileInput from 'react-fine-uploader/file-input'
+import FineUploaderS3, { qq } from 'fine-uploader-wrappers/s3'
 import PauseResumeButton from 'react-fine-uploader/pause-resume-button'
 import Thumbnail from 'react-fine-uploader/thumbnail'
 import 'react-fine-uploader/gallery/gallery.css'
-const thumbsContainer = {
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16
-};
+import axios from "axios";
 
-const thumb = {
-    display: 'inline-flex',
-    borderRadius: 2,
-    border: '1px solid #eaeaea',
-    marginBottom: 8,
-    marginRight: 8,
-    width: 100,
-    height: 100,
-    padding: 4,
-    boxSizing: 'border-box'
-};
-
-const thumbInner = {
-    display: 'flex',
-    minWidth: 0,
-    overflow: 'hidden'
-}
-
-const img = {
-    display: 'block',
-    width: 'auto',
-    height: '100%'
-};
-const uploader =new FineUploaderTraditional({
+const uploader =new FineUploaderS3({
     options: {
-        request: {
-            endpoint: 'api/upload/endpoint'
+        debug: true,
+        multiple: true,
+        // validation: {
+        //     allowedExtensions: ['jpeg', 'jpg', 'png', 'gif', 'svg'],
+        //     sizeLimit: 5120000 // 50 kB = 50 * 1024 bytes
+        // },
+        // cors: {
+        //     expected: true,
+        //     sendCredentials: true
+        // },
+        objectProperties: {
+            region:'eu-west-2',
+            acl: 'private',
+// key:'AKIAJLLTRF7OZTQ72NVA'
+            // acl: 'public-read',
+            // 'x-amz-credential'
+            // :'AKIAJLLTRF7OZTQ72NVA/20190306/eu-west-2/s3/aws4_request'
         },
+        request: {
+            // endpoint: "https://s3.eu-west-2.amazonaws.com/ziggy-upload-test",
+
+            endpoint: "https://ziggy-upload-test.s3.eu-west-2.amazonaws.com",
+            // endpoint: "https://ziggy-upload-test.amazonaws.com",
+            accessKey: "AKIAJLLTRF7OZTQ72NVA"
+        },
+        signature: {
+            region:'eu-west-2',
+            version: 4,
+            endpoint: "/api/s3handler",
+        },
+        maxConnections: 6,
         chunking: {
+            enabled: true,
+            mandatory: true,
+            concurrent: { enabled: true }
+        },
+        resume: {
             enabled: true
         },
-        retry: {
-            enableAuto: true
+       autoUpload:true,
+        uploadSuccess: {
+            endpoint: "/fineUploader/s3/endpoint-cors.php?success",
         },
-       autoUpload:false
+        iframeSupport: {
+            localBlankPagePath: "/fineUploader/s3/success.html"
+        },
+        retry: {
+            enabledAuto: true,
+            showButton: true
+        },
+        cors: {
+            expected: true
+        },
+
+        deleteFile: {
+            enabled: true,
+            method: "POST",
+            endpoint: "/fineUploader/s3/endpoint-cors.php"
+        },
+        callbacks: {
+            onComplete: function(id, name, response) {
+                console.log('Completed for ID: %s, with name: %s', id, name);
+            }
+        }
     }
 });
 const fileInputChildren = <span>Choose files</span>
@@ -114,49 +138,31 @@ class BlogFormReview extends Component {
         const {submitBlog, history, formValues} = this.props;
         console.log(uploader.methods.getFile(this.state.submittedFiles[0]));
         submitBlog(formValues, uploader.methods.getFile(this.state.submittedFiles[0]), history);
-    }
 
-    onDrop(files) {
-        console.log(files)
-        this.setState({
-            files: files.map(file => Object.assign(file, {
-                preview: URL.createObjectURL(file)
-            }))
-        });
-
-        // POST to a test endpoint for demo purposes
-        const req = request.post('https://httpbin.org/post');
-
-        files.forEach(file => {
-            req.attach(file.name, file);
-        });
-
-        req.end();
+     //    uploader.on('upload', () => {
+     //        const uploadConfig = axios.get('/api/upload');
+     //        console.log(uploadConfig)
+     //        submitBlog(formValues, uploader.methods.getFile(this.state.submittedFiles[0]), history);
+     //        uploader.methods.setEndpoint('hohoho');
+     //        uploader.methods.setParams({
+     //            ajax: true
+     //        });
+     //        console.log('upload')
+     //
+     //    })
+     //    uploader.on('submit', () => {
+     // console.log('submiitasdfasdfasf')
+     //    })
     }
 
     render() {
         const {files} = this.state;
-        const thumbs = files.map(file => (
-            <div style={thumb} key={file.name}>
-                <h4>{file.name}</h4>
-                <div style={thumbInner}>
-                    <img
-                        src={file.preview}
-                        style={img}
-                    />
-                </div>
-            </div>
-        ));
-
         return (
 
             <form onSubmit={this.onSubmit.bind(this)}>
                 <h5>Please confirm your entries...</h5>
                 {this.renderFields()}
                 <section>
-                    <FileInput multiple accept='image/*' uploader={ uploader }>
-                        <span class="icon ion-upload">Choose Files</span>
-                    </FileInput>
 
                     <Gallery
                         fileInput-children={ fileInputChildren }
